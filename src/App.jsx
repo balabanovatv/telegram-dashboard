@@ -54,6 +54,7 @@ function App() {
         const sessions = Array.from(new Set(validLogs.map(l => l.session_id)));
         const totalDialogs = sessions.length;
 
+        // СРЕДНЯЯ ДЛИНА ДИАЛОГА (в сообщениях)
         const sessionLengths = sessions.map(
           sessionId => validLogs.filter(l => l.session_id === sessionId).length
         );
@@ -61,24 +62,81 @@ function App() {
           ? (sessionLengths.reduce((a, b) => a + b, 0) / sessionLengths.length).toFixed(1)
           : 0;
 
-        const userSessions = {};
+        // ВОЗВРАЩАЕМОСТЬ ПО ДНЯМ
+        const userDays = {};
         validLogs.forEach(l => {
-          if (!userSessions[l.user_id]) userSessions[l.user_id] = new Set();
-          userSessions[l.user_id].add(l.session_id);
+          if (l.created_at && l.user_id) {
+            const date = dayjs(l.created_at).format('YYYY-MM-DD');
+            if (!userDays[l.user_id]) userDays[l.user_id] = new Set();
+            userDays[l.user_id].add(date);
+          }
         });
-        const repeatUsers = Object.values(userSessions).filter(s => s.size > 1).length;
-        const retentionRate = Object.keys(userSessions).length
-          ? `${Math.round((repeatUsers / Object.keys(userSessions).length) * 100)}%`
+        
+        const totalUsers = Object.keys(userDays).length;
+        const returningUsers = Object.values(userDays).filter(days => days.size > 1).length;
+        const retentionRate = totalUsers > 0 
+          ? `${Math.round((returningUsers / totalUsers) * 100)}%`
           : '0%';
 
-        const successDialogs = sessions.filter(sessionId =>
-          validLogs
-            .filter(l => l.session_id === sessionId)
-            .some(l => l.content && /контакт|заказ|заявк|телефон|email|почт|купил|оплатил|достиг/i.test(l.content))
-        ).length;
+        // УСПЕШНОСТЬ ДИАЛОГОВ - НОВЫЙ КРИТЕРИЙ!
+        // Ищем только сообщения ПОЛЬЗОВАТЕЛЕЙ с контактами
+        const successDialogs = sessions.filter(sessionId => {
+          const sessionMessages = validLogs.filter(l => l.session_id === sessionId);
+          
+          // Проверяем только сообщения пользователей (role === 'user')
+          const userMessages = sessionMessages.filter(l => l.role === 'user');
+          
+          return userMessages.some(l => {
+            if (!l.content) return false;
+            
+            const content = l.content.toLowerCase();
+            
+            // Паттерны для поиска контактов
+            const phonePattern = /(\+7|8)[\s\-\(\)]?[\d\s\-\(\)]{10,}/; // Телефоны
+            const emailPattern = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/; // Email
+            const telegramPattern = /@[a-zA-Z0-9_]+/; // Telegram username
+            
+            // Ключевые фразы от пользователя
+            const contactKeywords = /мой телефон|мой номер|можете звонить|вот мой контакт|моя почта|мой email|записывайте/i;
+            
+            return phonePattern.test(content) || 
+                   emailPattern.test(content) || 
+                   telegramPattern.test(content) ||
+                   contactKeywords.test(content);
+          });
+        }).length;
+
         const failDialogs = totalDialogs - successDialogs;
         const successRate = totalDialogs ? `${Math.round((successDialogs / totalDialogs) * 100)}%` : '0%';
         const failRate = totalDialogs ? `${Math.round((failDialogs / totalDialogs) * 100)}%` : '0%';
+
+        console.log('=== АНАЛИЗ УСПЕШНОСТИ ===');
+        console.log('Всего диалогов:', totalDialogs);
+        console.log('Успешных диалогов:', successDialogs);
+        console.log('Процент успешности:', successRate);
+        
+        // Детальный анализ каждого диалога
+        sessions.forEach(sessionId => {
+          const sessionMessages = validLogs.filter(l => l.session_id === sessionId);
+          const userMessages = sessionMessages.filter(l => l.role === 'user');
+          const hasContacts = userMessages.some(l => {
+            if (!l.content) return false;
+            const content = l.content.toLowerCase();
+            const phonePattern = /(\+7|8)[\s\-\(\)]?[\d\s\-\(\)]{10,}/;
+            const emailPattern = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+            const telegramPattern = /@[a-zA-Z0-9_]+/;
+            const contactKeywords = /мой телефон|мой номер|можете звонить|вот мой контакт|моя почта|мой email|записывайте/i;
+            
+            return phonePattern.test(content) || emailPattern.test(content) || 
+                   telegramPattern.test(content) || contactKeywords.test(content);
+          });
+          
+          if (hasContacts) {
+            console.log(`✅ Успешный диалог ${sessionId}:`, 
+              userMessages.filter(l => l.content).map(l => l.content.substring(0, 50))
+            );
+          }
+        });
 
         // График
         const chartMap = {};
@@ -166,15 +224,14 @@ function App() {
   ];
 
   return (
-    <div style={{ 
+    <div style={{
       width: '100%',
       minHeight: '100vh',
       background: '#f0f2f5',
-      padding: 'clamp(10px, 2vw, 40px)',
-      boxSizing: 'border-box',
-      overflow: 'auto'
+      padding: '20px',
+      boxSizing: 'border-box'
     }}>
-      {/* КОНТЕЙНЕР С ОГРАНИЧЕННОЙ ШИРИНОЙ */}
+      {/* АДАПТИВНЫЙ КОНТЕЙНЕР */}
       <div style={{
         maxWidth: '1400px',
         margin: '0 auto',
@@ -184,13 +241,13 @@ function App() {
         <div style={{ 
           background: '#1890ff', 
           color: '#fff', 
-          fontSize: 'clamp(18px, 4vw, 28px)',
+          fontSize: '24px',
           fontWeight: '700', 
           textAlign: 'center',
-          padding: 'clamp(15px, 3vw, 25px)',
+          padding: '20px',
           marginBottom: '20px',
-          borderRadius: '12px',
-          boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)'
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(24, 144, 255, 0.3)'
         }}>
           Дашборд Telegram-бота
         </div>
@@ -198,201 +255,192 @@ function App() {
         {/* АДАПТИВНЫЕ МЕТРИКИ */}
         <div style={{
           background: '#fff',
-          padding: 'clamp(20px, 3vw, 40px)',
+          padding: '30px',
           marginBottom: '20px',
-          borderRadius: '12px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
         }}>
           <h2 style={{ 
             textAlign: 'center', 
-            marginBottom: 'clamp(20px, 3vw, 30px)', 
-            fontSize: 'clamp(18px, 3vw, 24px)',
-            margin: '0 0 25px 0',
+            marginBottom: '30px', 
+            fontSize: '20px',
+            margin: '0 0 30px 0',
             color: '#1f1f1f'
           }}>
             Основные метрики
           </h2>
           
-          {/* СЕТКА С ОГРАНИЧЕННОЙ ШИРИНОЙ ЭЛЕМЕНТОВ */}
+          {/* АДАПТИВНАЯ СЕТКА */}
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: 'clamp(15px, 2vw, 25px)',
-            fontSize: 'clamp(14px, 2.5vw, 16px)',
-            maxWidth: '1200px',
-            margin: '0 auto'
+            gap: '20px',
+            marginBottom: '20px'
           }}>
             <div style={{ 
-              background: 'linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%)', 
-              padding: 'clamp(15px, 2vw, 25px)', 
+              background: '#e6f7ff', 
+              padding: '25px', 
               borderRadius: '12px', 
               textAlign: 'center',
               border: '2px solid #1890ff',
-              boxShadow: '0 2px 8px rgba(24, 144, 255, 0.2)'
+              boxShadow: '0 4px 12px rgba(24, 144, 255, 0.1)'
             }}>
               <div style={{ 
-                fontSize: 'clamp(24px, 5vw, 36px)', 
+                fontSize: '32px', 
                 fontWeight: 'bold', 
                 color: '#1890ff',
-                lineHeight: '1.2',
                 marginBottom: '8px'
               }}>
                 {metrics.totalMessages}
               </div>
-              <div style={{ fontSize: 'clamp(12px, 2vw, 14px)', color: '#666' }}>
+              <div style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
                 Всего сообщений
               </div>
             </div>
             
             <div style={{ 
-              background: 'linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%)', 
-              padding: 'clamp(15px, 2vw, 25px)', 
+              background: '#f6ffed', 
+              padding: '25px', 
               borderRadius: '12px', 
               textAlign: 'center',
               border: '2px solid #52c41a',
-              boxShadow: '0 2px 8px rgba(82, 196, 26, 0.2)'
+              boxShadow: '0 4px 12px rgba(82, 196, 26, 0.1)'
             }}>
               <div style={{ 
-                fontSize: 'clamp(24px, 5vw, 36px)', 
+                fontSize: '32px', 
                 fontWeight: 'bold', 
                 color: '#52c41a',
-                lineHeight: '1.2',
                 marginBottom: '8px'
               }}>
                 {metrics.totalDialogs}
               </div>
-              <div style={{ fontSize: 'clamp(12px, 2vw, 14px)', color: '#666' }}>
+              <div style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
                 Всего диалогов
               </div>
             </div>
             
             <div style={{ 
-              background: 'linear-gradient(135deg, #fff7e6 0%, #ffd591 100%)', 
-              padding: 'clamp(15px, 2vw, 25px)', 
+              background: '#fff7e6', 
+              padding: '25px', 
               borderRadius: '12px', 
               textAlign: 'center',
               border: '2px solid #fa8c16',
-              boxShadow: '0 2px 8px rgba(250, 140, 22, 0.2)'
+              boxShadow: '0 4px 12px rgba(250, 140, 22, 0.1)'
             }}>
               <div style={{ 
-                fontSize: 'clamp(24px, 5vw, 36px)', 
+                fontSize: '32px', 
                 fontWeight: 'bold', 
                 color: '#fa8c16',
-                lineHeight: '1.2',
                 marginBottom: '8px'
               }}>
                 {metrics.avgDialogLength}
               </div>
-              <div style={{ fontSize: 'clamp(12px, 2vw, 14px)', color: '#666' }}>
-                Средняя длина
+              <div style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
+                Сообщений в диалоге
               </div>
             </div>
-            
+
             <div style={{ 
-              background: 'linear-gradient(135deg, #f9f0ff 0%, #d3adf7 100%)', 
-              padding: 'clamp(15px, 2vw, 25px)', 
+              background: '#f9f0ff', 
+              padding: '25px', 
               borderRadius: '12px', 
               textAlign: 'center',
               border: '2px solid #722ed1',
-              boxShadow: '0 2px 8px rgba(114, 46, 209, 0.2)'
+              boxShadow: '0 4px 12px rgba(114, 46, 209, 0.1)'
             }}>
               <div style={{ 
-                fontSize: 'clamp(24px, 5vw, 36px)', 
+                fontSize: '32px', 
                 fontWeight: 'bold', 
                 color: '#722ed1',
-                lineHeight: '1.2',
                 marginBottom: '8px'
               }}>
                 {metrics.retentionRate}
               </div>
-              <div style={{ fontSize: 'clamp(12px, 2vw, 14px)', color: '#666' }}>
-                Retention Rate
+              <div style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
+                Возвращаемость
               </div>
             </div>
             
             <div style={{ 
-              background: 'linear-gradient(135deg, #f6ffed 0%, #b7eb8f 100%)', 
-              padding: 'clamp(15px, 2vw, 25px)', 
+              background: '#f6ffed', 
+              padding: '25px', 
               borderRadius: '12px', 
               textAlign: 'center',
               border: '2px solid #52c41a',
-              boxShadow: '0 2px 8px rgba(82, 196, 26, 0.2)'
+              boxShadow: '0 4px 12px rgba(82, 196, 26, 0.1)'
             }}>
               <div style={{ 
-                fontSize: 'clamp(24px, 5vw, 36px)', 
+                fontSize: '32px', 
                 fontWeight: 'bold', 
                 color: '#52c41a',
-                lineHeight: '1.2',
                 marginBottom: '8px'
               }}>
                 {metrics.successRate}
               </div>
-              <div style={{ fontSize: 'clamp(12px, 2vw, 14px)', color: '#666' }}>
-                Успешных
+              <div style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
+                Оставили контакты
               </div>
             </div>
             
             <div style={{ 
-              background: 'linear-gradient(135deg, #fff2f0 0%, #ffccc7 100%)', 
-              padding: 'clamp(15px, 2vw, 25px)', 
+              background: '#fff2f0', 
+              padding: '25px', 
               borderRadius: '12px', 
               textAlign: 'center',
               border: '2px solid #ff4d4f',
-              boxShadow: '0 2px 8px rgba(255, 77, 79, 0.2)'
+              boxShadow: '0 4px 12px rgba(255, 77, 79, 0.1)'
             }}>
               <div style={{ 
-                fontSize: 'clamp(24px, 5vw, 36px)', 
+                fontSize: '32px', 
                 fontWeight: 'bold', 
                 color: '#ff4d4f',
-                lineHeight: '1.2',
                 marginBottom: '8px'
               }}>
                 {metrics.failRate}
               </div>
-              <div style={{ fontSize: 'clamp(12px, 2vw, 14px)', color: '#666' }}>
-                Неуспешных
+              <div style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
+                Без контактов
               </div>
             </div>
           </div>
           
-          {loading && <div style={{ color: '#1890ff', marginTop: '20px', textAlign: 'center', fontSize: 'clamp(14px, 2.5vw, 16px)' }}>Загрузка данных...</div>}
-          {error && <div style={{ color: 'red', marginTop: '20px', textAlign: 'center', fontSize: 'clamp(14px, 2.5vw, 16px)' }}>{error}</div>}
+          {loading && <div style={{ color: '#1890ff', marginTop: '20px', textAlign: 'center', fontSize: '16px' }}>Загрузка данных...</div>}
+          {error && <div style={{ color: 'red', marginTop: '20px', textAlign: 'center', fontSize: '16px' }}>{error}</div>}
         </div>
 
         {/* АДАПТИВНЫЙ ГРАФИК */}
         <div style={{
           background: '#fff',
-          padding: 'clamp(15px, 2vw, 30px)',
+          padding: '30px',
           marginBottom: '20px',
-          borderRadius: '12px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
         }}>
           <h3 style={{ 
             marginBottom: '20px', 
-            fontSize: 'clamp(16px, 3vw, 22px)',
+            fontSize: '18px',
             margin: '0 0 20px 0',
             color: '#1f1f1f'
           }}>
             Динамика сообщений
           </h3>
-          <div style={{ marginBottom: '20px', overflow: 'auto' }}>
+          <div style={{ marginBottom: '20px' }}>
             <RangePicker
               onChange={dates => setDateRange(dates)}
               format="YYYY-MM-DD"
               allowClear
-              size="middle"
-              style={{ fontSize: 'clamp(12px, 2vw, 14px)' }}
+              size="default"
+              style={{ fontSize: '14px' }}
             />
           </div>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '40px' }}>
+            <div style={{ textAlign: 'center', padding: '50px' }}>
               <Spin size="large" />
             </div>
           ) : (
             <div style={{ 
               width: '100%', 
-              height: 'clamp(250px, 40vw, 450px)',
-              minHeight: '250px'
+              height: '400px'
             }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
@@ -420,14 +468,14 @@ function App() {
         {/* АДАПТИВНАЯ ТАБЛИЦА */}
         <div style={{
           background: '#fff',
-          padding: 'clamp(15px, 2vw, 30px)',
-          borderRadius: '12px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-          marginBottom: '30px'
+          padding: '30px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          marginBottom: '20px'
         }}>
           <h3 style={{ 
             marginBottom: '20px', 
-            fontSize: 'clamp(16px, 3vw, 22px)',
+            fontSize: '18px',
             margin: '0 0 20px 0',
             color: '#1f1f1f'
           }}>
@@ -437,10 +485,10 @@ function App() {
             <Table 
               columns={columns} 
               dataSource={users} 
-              pagination={false}
-              size="middle"
+              pagination={{ pageSize: 10 }}
+              size="default"
               scroll={{ x: 400 }}
-              style={{ fontSize: 'clamp(12px, 2vw, 14px)' }}
+              style={{ fontSize: '14px' }}
             />
           </div>
         </div>
@@ -452,15 +500,15 @@ function App() {
         title="История чата"
         footer={null}
         width="90vw"
-        style={{ maxWidth: '700px' }}
+        style={{ maxWidth: '800px' }}
       >
         <List
           dataSource={chatLogs[selectedUser] || []}
           renderItem={item => (
-            <List.Item style={{ fontSize: 'clamp(12px, 2vw, 14px)' }}>
+            <List.Item style={{ fontSize: '14px' }}>
               <div>
                 <b>{item.from === 'user' ? 'Пользователь' : 'Ассистент'}:</b> {item.text}
-                <div style={{ color: '#aaa', fontSize: 'clamp(10px, 1.5vw, 12px)', marginTop: '5px' }}>
+                <div style={{ color: '#aaa', fontSize: '12px', marginTop: '5px' }}>
                   {dayjs(item.time).format('YYYY-MM-DD HH:mm')}
                 </div>
               </div>
