@@ -199,14 +199,14 @@ function App() {
       <div style={{
         background: '#ffffff',
         color: '#2c3e50',
-        padding: '60px 40px',
+        padding: window.innerWidth <= 768 ? '30px 20px' : '60px 40px',
         textAlign: 'center',
         borderBottom: '1px solid #e9ecef',
         boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
       }}>
         <h1 style={{
           margin: '0',
-          fontSize: '48px',
+          fontSize: window.innerWidth <= 768 ? '28px' : '48px',
           fontWeight: '300',
           letterSpacing: '-1px',
           color: '#2c3e50'
@@ -215,7 +215,7 @@ function App() {
         </h1>
         <p style={{
           margin: '16px 0 0 0',
-          fontSize: '18px',
+          fontSize: window.innerWidth <= 768 ? '14px' : '18px',
           color: '#6c757d',
           fontWeight: '300'
         }}>
@@ -223,7 +223,13 @@ function App() {
         </p>
       </div>
 
-      <div style={{ padding: '40px' }}>
+      {/* КОНТЕЙНЕР С МАКСИМАЛЬНОЙ ШИРИНОЙ */}
+      <div style={{ 
+        padding: window.innerWidth <= 768 ? '20px' : '40px',
+        maxWidth: '1400px',
+        margin: '0 auto',
+        width: '100%'
+      }}>
         {/* ВКЛАДКИ */}
         <Tabs
           defaultActiveKey="1"
@@ -231,29 +237,34 @@ function App() {
           style={{
             background: '#ffffff',
             borderRadius: '12px',
-            padding: '40px',
+            padding: window.innerWidth <= 768 ? '20px' : '40px',
             border: '1px solid #e9ecef',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
+            boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
+            width: '100%'
           }}
           tabBarStyle={{
-            marginBottom: '40px',
+            marginBottom: window.innerWidth <= 768 ? '20px' : '40px',
             borderBottom: '1px solid #e9ecef'
           }}
         >
 
           {/* ВКЛАДКА 1: ОСНОВНЫЕ МЕТРИКИ */}
           <TabPane tab="Основные метрики" key="1">
-            <Row gutter={[32, 32]}>
-              <Col xs={24} sm={12} md={8}>
+            <Row gutter={[24, 24]}>
+              <Col xs={24} sm={12} lg={8}>
                 <Card style={{
                   background: '#ffffff',
                   border: '1px solid #e9ecef',
                   borderRadius: '8px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                  height: '140px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{
-                      fontSize: '56px',
+                      fontSize: window.innerWidth <= 768 ? '36px' : '56px',
                       fontWeight: '200',
                       marginBottom: '12px',
                       color: '#2c3e50'
@@ -261,7 +272,7 @@ function App() {
                       {metrics.totalMessages}
                     </div>
                     <div style={{
-                      fontSize: '14px',
+                      fontSize: window.innerWidth <= 768 ? '12px' : '14px',
                       color: '#6c757d',
                       fontWeight: '400',
                       textTransform: 'uppercase',
@@ -273,16 +284,20 @@ function App() {
                 </Card>
               </Col>
 
-              <Col xs={24} sm={12} md={8}>
+              <Col xs={24} sm={12} lg={8}>
                 <Card style={{
                   background: '#ffffff',
                   border: '1px solid #e9ecef',
                   borderRadius: '8px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                  height: '140px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{
-                      fontSize: '56px',
+                      fontSize: window.innerWidth <= 768 ? '36px' : '56px',
                       fontWeight: '200',
                       marginBottom: '12px',
                       color: '#2c3e50'
@@ -290,7 +305,7 @@ function App() {
                       {metrics.totalDialogs}
                     </div>
                     <div style={{
-                      fontSize: '14px',
+                      fontSize: window.innerWidth <= 768 ? '12px' : '14px',
                       color: '#6c757d',
                       fontWeight: '400',
                       textTransform: 'uppercase',
@@ -302,16 +317,20 @@ function App() {
                 </Card>
               </Col>
 
-              <Col xs={24} sm={12} md={8}>
+              <Col xs={24} sm={12} lg={8}>
                 <Card style={{
                   background: '#ffffff',
                   border: '1px solid #e9ecef',
                   borderRadius: '8px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                  height: '140px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{
-                      fontSize: '56px',
+                      fontSize: window.innerWidth <= 768 ? '36px' : '56px',
                       fontWeight: '200',
                       marginBottom: '12px',
                       color: '#2c3e50'
@@ -319,7 +338,7 @@ function App() {
                       {metrics.conversionRate}
                     </div>
                     <div style={{
-                      fontSize: '14px',
+                      fontSize: window.innerWidth <= 768 ? '12px' : '14px',
                       color: '#6c757d',
                       fontWeight: '400',
                       textTransform: 'uppercase',
@@ -331,16 +350,20 @@ function App() {
                 </Card>
               </Col>
 
-              <Col xs={24} sm={12} md={8}>
+              <Col xs={24} sm={12} lg={8}>
                 <Card style={{
                   background: '#ffffff',
                   border: '1px solid #e9ecef',
                   borderRadius: '8px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                  height: '140px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{
-                      fontSize: '56px',
+                      fontSize: window.innerWidth <= 768 ? '36px' : '56px',
                       fontWeight: '200',
                       marginBottom: '12px',
                       color: '#2c3e50'
@@ -348,7 +371,7 @@ function App() {
                       {metrics.retentionRate}
                     </div>
                     <div style={{
-                      fontSize: '14px',
+                      fontSize: window.innerWidth <= 768 ? '12px' : '14px',
                       color: '#6c757d',
                       fontWeight: '400',
                       textTransform: 'uppercase',
@@ -360,16 +383,20 @@ function App() {
                 </Card>
               </Col>
 
-              <Col xs={24} sm={12} md={8}>
+              <Col xs={24} sm={12} lg={8}>
                 <Card style={{
                   background: '#ffffff',
                   border: '1px solid #e9ecef',
                   borderRadius: '8px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                  height: '140px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{
-                      fontSize: '56px',
+                      fontSize: window.innerWidth <= 768 ? '36px' : '56px',
                       fontWeight: '200',
                       marginBottom: '12px',
                       color: '#2c3e50'
@@ -377,7 +404,7 @@ function App() {
                       {metrics.successDialogs}
                     </div>
                     <div style={{
-                      fontSize: '14px',
+                      fontSize: window.innerWidth <= 768 ? '12px' : '14px',
                       color: '#6c757d',
                       fontWeight: '400',
                       textTransform: 'uppercase',
@@ -389,16 +416,20 @@ function App() {
                 </Card>
               </Col>
 
-              <Col xs={24} sm={12} md={8}>
+              <Col xs={24} sm={12} lg={8}>
                 <Card style={{
                   background: '#ffffff',
                   border: '1px solid #e9ecef',
                   borderRadius: '8px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                  height: '140px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{
-                      fontSize: '56px',
+                      fontSize: window.innerWidth <= 768 ? '36px' : '56px',
                       fontWeight: '200',
                       marginBottom: '12px',
                       color: '#2c3e50'
@@ -406,7 +437,7 @@ function App() {
                       {metrics.failRate}
                     </div>
                     <div style={{
-                      fontSize: '14px',
+                      fontSize: window.innerWidth <= 768 ? '12px' : '14px',
                       color: '#6c757d',
                       fontWeight: '400',
                       textTransform: 'uppercase',
@@ -422,7 +453,7 @@ function App() {
             {loading && (
               <div style={{
                 textAlign: 'center',
-                marginTop: '60px',
+                marginTop: '40px',
                 fontSize: '16px',
                 color: '#6c757d'
               }}>
@@ -432,7 +463,7 @@ function App() {
             {error && (
               <div style={{
                 textAlign: 'center',
-                marginTop: '60px',
+                marginTop: '40px',
                 fontSize: '16px',
                 color: '#dc3545'
               }}>
@@ -443,7 +474,7 @@ function App() {
 
           {/* ВКЛАДКА 2: ГРАФИК */}
           <TabPane tab="Динамика сообщений" key="2">
-            <div style={{ marginBottom: '40px' }}>
+            <div style={{ marginBottom: '30px' }}>
               <RangePicker
                 onChange={dates => setDateRange(dates)}
                 format="YYYY-MM-DD"
@@ -461,7 +492,7 @@ function App() {
             {loading ? (
               <div style={{
                 textAlign: 'center',
-                padding: '100px',
+                padding: '60px 20px',
                 fontSize: '16px',
                 color: '#6c757d'
               }}>
@@ -471,10 +502,10 @@ function App() {
             ) : (
               <div style={{
                 width: '100%',
-                height: '500px',
+                height: window.innerWidth <= 768 ? '300px' : '500px',
                 background: '#ffffff',
                 borderRadius: '8px',
-                padding: '30px',
+                padding: window.innerWidth <= 768 ? '15px' : '30px',
                 border: '1px solid #e9ecef',
                 boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
               }}>
@@ -483,12 +514,12 @@ function App() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
                     <XAxis
                       dataKey="date"
-                      fontSize={12}
+                      fontSize={window.innerWidth <= 768 ? 10 : 12}
                       stroke="#6c757d"
                       tick={{ fill: '#6c757d' }}
                     />
                     <YAxis
-                      fontSize={12}
+                      fontSize={window.innerWidth <= 768 ? 10 : 12}
                       stroke="#6c757d"
                       tick={{ fill: '#6c757d' }}
                     />
@@ -529,7 +560,7 @@ function App() {
             <div style={{
               background: '#ffffff',
               borderRadius: '8px',
-              padding: '30px',
+              padding: window.innerWidth <= 768 ? '15px' : '30px',
               border: '1px solid #e9ecef',
               boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
             }}>
@@ -537,12 +568,12 @@ function App() {
                 columns={columns}
                 dataSource={users}
                 pagination={{
-                  pageSize: 15,
+                  pageSize: window.innerWidth <= 768 ? 10 : 15,
                   showSizeChanger: true,
                   showQuickJumper: true,
                   showTotal: (total, range) => `${range[0]}-${range[1]} из ${total} пользователей`
                 }}
-                size="middle"
+                size={window.innerWidth <= 768 ? 'small' : 'middle'}
                 scroll={{ x: 600 }}
                 style={{
                   background: 'transparent'
@@ -567,14 +598,14 @@ function App() {
           </div>
         }
         footer={null}
-        width="90vw"
-        style={{ 
+        width={window.innerWidth <= 768 ? '95vw' : '90vw'}
+        style={{
           maxWidth: '800px'
         }}
         bodyStyle={{
           maxHeight: '60vh',
           overflowY: 'auto',
-          padding: '30px',
+          padding: window.innerWidth <= 768 ? '15px' : '30px',
           background: '#ffffff'
         }}
       >
@@ -582,23 +613,23 @@ function App() {
           dataSource={chatLogs[selectedUser] || []}
           renderItem={item => (
             <List.Item style={{
-              padding: '20px 0',
+              padding: window.innerWidth <= 768 ? '15px 0' : '20px 0',
               borderBottom: '1px solid #e9ecef'
             }}>
               <div style={{ width: '100%' }}>
                 <div style={{
                   fontWeight: '500',
                   color: item.from === 'user' ? '#2c3e50' : '#6c757d',
-                  marginBottom: '12px',
-                  fontSize: '14px',
+                  marginBottom: '8px',
+                  fontSize: window.innerWidth <= 768 ? '12px' : '14px',
                   textTransform: 'uppercase',
                   letterSpacing: '1px'
                 }}>
                   {item.from === 'user' ? 'Пользователь' : 'Ассистент'}
                 </div>
                 <div style={{
-                  marginBottom: '12px',
-                  fontSize: '16px',
+                  marginBottom: '8px',
+                  fontSize: window.innerWidth <= 768 ? '14px' : '16px',
                   lineHeight: '1.5',
                   color: '#2c3e50'
                 }}>
@@ -606,7 +637,7 @@ function App() {
                 </div>
                 <div style={{
                   color: '#adb5bd',
-                  fontSize: '12px',
+                  fontSize: window.innerWidth <= 768 ? '11px' : '12px',
                   fontWeight: '400'
                 }}>
                   {dayjs(item.time).format('DD.MM.YYYY HH:mm')}
