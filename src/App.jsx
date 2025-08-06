@@ -1,21 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Row, Col, Table, Button, Modal, List, DatePicker, Space, Spin, message, Card } from 'antd';
+import { Table, Button, Modal, List, DatePicker, Spin, Tabs, Row, Col, Card, Statistic } from 'antd';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { supabase } from './supabaseClient';
 import dayjs from 'dayjs';
 
-const { Header, Content } = Layout;
 const { RangePicker } = DatePicker;
+const { TabPane } = Tabs;
 
 function App() {
   const [metrics, setMetrics] = useState({
     totalMessages: 0,
     totalDialogs: 0,
-    avgDialogLength: 0,
+    conversionRate: '0%',
     retentionRate: '0%',
-    successRate: '0%',
+    successDialogs: 0,
     failRate: '0%',
-    conversion: '0%',
   });
   const [chartData, setChartData] = useState([]);
   const [users, setUsers] = useState([]);
@@ -29,10 +28,10 @@ function App() {
     async function fetchData() {
       setLoading(true);
       setError('');
-      
+
       try {
         const { data: logs, error } = await supabase.from('chat_logs').select('*');
-        
+
         if (error || !logs) {
           console.error('Ошибка Supabase:', error);
           setError('Ошибка загрузки данных из Supabase');
@@ -54,14 +53,6 @@ function App() {
         const sessions = Array.from(new Set(validLogs.map(l => l.session_id)));
         const totalDialogs = sessions.length;
 
-        // СРЕДНЯЯ ДЛИНА ДИАЛОГА (в сообщениях)
-        const sessionLengths = sessions.map(
-          sessionId => validLogs.filter(l => l.session_id === sessionId).length
-        );
-        const avgDialogLength = sessionLengths.length
-          ? (sessionLengths.reduce((a, b) => a + b, 0) / sessionLengths.length).toFixed(1)
-          : 0;
-
         // ВОЗВРАЩАЕМОСТЬ ПО ДНЯМ
         const userDays = {};
         validLogs.forEach(l => {
@@ -71,72 +62,40 @@ function App() {
             userDays[l.user_id].add(date);
           }
         });
-        
+
         const totalUsers = Object.keys(userDays).length;
         const returningUsers = Object.values(userDays).filter(days => days.size > 1).length;
-        const retentionRate = totalUsers > 0 
+        const retentionRate = totalUsers > 0
           ? `${Math.round((returningUsers / totalUsers) * 100)}%`
           : '0%';
 
-        // УСПЕШНОСТЬ ДИАЛОГОВ - НОВЫЙ КРИТЕРИЙ!
-        // Ищем только сообщения ПОЛЬЗОВАТЕЛЕЙ с контактами
+        // УСПЕШНОСТЬ ДИАЛОГОВ
         const successDialogs = sessions.filter(sessionId => {
           const sessionMessages = validLogs.filter(l => l.session_id === sessionId);
-          
-          // Проверяем только сообщения пользователей (role === 'user')
           const userMessages = sessionMessages.filter(l => l.role === 'user');
-          
+
           return userMessages.some(l => {
-            if (!l.content) return false;
-            
-            const content = l.content.toLowerCase();
-            
-            // Паттерны для поиска контактов
-            const phonePattern = /(\+7|8)[\s\-\(\)]?[\d\s\-\(\)]{10,}/; // Телефоны
-            const emailPattern = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/; // Email
-            const telegramPattern = /@[a-zA-Z0-9_]+/; // Telegram username
-            
-            // Ключевые фразы от пользователя
-            const contactKeywords = /мой телефон|мой номер|можете звонить|вот мой контакт|моя почта|мой email|записывайте/i;
-            
-            return phonePattern.test(content) || 
-                   emailPattern.test(content) || 
-                   telegramPattern.test(content) ||
-                   contactKeywords.test(content);
-          });
-        }).length;
-
-        const failDialogs = totalDialogs - successDialogs;
-        const successRate = totalDialogs ? `${Math.round((successDialogs / totalDialogs) * 100)}%` : '0%';
-        const failRate = totalDialogs ? `${Math.round((failDialogs / totalDialogs) * 100)}%` : '0%';
-
-        console.log('=== АНАЛИЗ УСПЕШНОСТИ ===');
-        console.log('Всего диалогов:', totalDialogs);
-        console.log('Успешных диалогов:', successDialogs);
-        console.log('Процент успешности:', successRate);
-        
-        // Детальный анализ каждого диалога
-        sessions.forEach(sessionId => {
-          const sessionMessages = validLogs.filter(l => l.session_id === sessionId);
-          const userMessages = sessionMessages.filter(l => l.role === 'user');
-          const hasContacts = userMessages.some(l => {
             if (!l.content) return false;
             const content = l.content.toLowerCase();
             const phonePattern = /(\+7|8)[\s\-\(\)]?[\d\s\-\(\)]{10,}/;
             const emailPattern = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
             const telegramPattern = /@[a-zA-Z0-9_]+/;
             const contactKeywords = /мой телефон|мой номер|можете звонить|вот мой контакт|моя почта|мой email|записывайте/i;
-            
-            return phonePattern.test(content) || emailPattern.test(content) || 
-                   telegramPattern.test(content) || contactKeywords.test(content);
+
+            return phonePattern.test(content) ||
+                   emailPattern.test(content) ||
+                   telegramPattern.test(content) ||
+                   contactKeywords.test(content);
           });
-          
-          if (hasContacts) {
-            console.log(`✅ Успешный диалог ${sessionId}:`, 
-              userMessages.filter(l => l.content).map(l => l.content.substring(0, 50))
-            );
-          }
-        });
+        }).length;
+
+        const failDialogs = totalDialogs - successDialogs;
+        const failRate = totalDialogs ? `${Math.round((failDialogs / totalDialogs) * 100)}%` : '0%';
+
+        // КОНВЕРСИЯ В УСПЕШНЫЕ ДИАЛОГИ (из общего количества обращений)
+        const conversionRate = totalUsers > 0
+          ? `${Math.round((successDialogs / totalUsers) * 100)}%`
+          : '0%';
 
         // График
         const chartMap = {};
@@ -180,20 +139,15 @@ function App() {
           });
         });
 
-        // ПРИНУДИТЕЛЬНО устанавливаем метрики
         const newMetrics = {
           totalMessages: totalMessages,
           totalDialogs: totalDialogs,
-          avgDialogLength: avgDialogLength,
+          conversionRate: conversionRate,
           retentionRate: retentionRate,
-          successRate: successRate,
+          successDialogs: successDialogs,
           failRate: failRate,
-          conversion: successRate,
         };
 
-        console.log('Рассчитанные метрики:', newMetrics);
-
-        // Устанавливаем всё одновременно
         setMetrics(newMetrics);
         setChartData(chartArr);
         setUsers(usersArr);
@@ -206,7 +160,7 @@ function App() {
         setError('Ошибка соединения с сервером');
       }
     }
-    
+
     fetchData();
   }, [dateRange]);
 
@@ -216,7 +170,18 @@ function App() {
       title: 'Действия',
       key: 'actions',
       render: (_, record) => (
-        <Button type="primary" size="small" onClick={() => setSelectedUser(record.id)}>
+        <Button
+          type="primary"
+          size="small"
+          onClick={() => setSelectedUser(record.id)}
+          style={{
+            background: '#1890ff',
+            border: '1px solid #1890ff',
+            borderRadius: '6px',
+            color: 'white',
+            fontWeight: '500'
+          }}
+        >
           История чата
         </Button>
       ),
@@ -225,291 +190,426 @@ function App() {
 
   return (
     <div style={{
-      width: '100%',
+      padding: '0',
+      background: '#f8f9fa',
       minHeight: '100vh',
-      background: '#f0f2f5',
-      padding: '20px',
-      boxSizing: 'border-box'
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
-      {/* АДАПТИВНЫЙ КОНТЕЙНЕР */}
+      {/* ЗАГОЛОВОК */}
       <div style={{
-        maxWidth: '1400px',
-        margin: '0 auto',
-        width: '100%'
+        background: '#ffffff',
+        color: '#2c3e50',
+        padding: '60px 40px',
+        textAlign: 'center',
+        borderBottom: '1px solid #e9ecef',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
       }}>
-        {/* Заголовок */}
-        <div style={{ 
-          background: '#1890ff', 
-          color: '#fff', 
-          fontSize: '24px',
-          fontWeight: '700', 
-          textAlign: 'center',
-          padding: '20px',
-          marginBottom: '20px',
-          borderRadius: '8px',
-          boxShadow: '0 2px 8px rgba(24, 144, 255, 0.3)'
+        <h1 style={{
+          margin: '0',
+          fontSize: '48px',
+          fontWeight: '300',
+          letterSpacing: '-1px',
+          color: '#2c3e50'
         }}>
-          Дашборд Telegram-бота
-        </div>
-
-        {/* АДАПТИВНЫЕ МЕТРИКИ */}
-        <div style={{
-          background: '#fff',
-          padding: '30px',
-          marginBottom: '20px',
-          borderRadius: '8px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          Дашборд Ассистент Exai
+        </h1>
+        <p style={{
+          margin: '16px 0 0 0',
+          fontSize: '18px',
+          color: '#6c757d',
+          fontWeight: '300'
         }}>
-          <h2 style={{ 
-            textAlign: 'center', 
-            marginBottom: '30px', 
-            fontSize: '20px',
-            margin: '0 0 30px 0',
-            color: '#1f1f1f'
-          }}>
-            Основные метрики
-          </h2>
-          
-          {/* АДАПТИВНАЯ СЕТКА */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '20px',
-            marginBottom: '20px'
-          }}>
-            <div style={{ 
-              background: '#e6f7ff', 
-              padding: '25px', 
-              borderRadius: '12px', 
-              textAlign: 'center',
-              border: '2px solid #1890ff',
-              boxShadow: '0 4px 12px rgba(24, 144, 255, 0.1)'
-            }}>
-              <div style={{ 
-                fontSize: '32px', 
-                fontWeight: 'bold', 
-                color: '#1890ff',
-                marginBottom: '8px'
-              }}>
-                {metrics.totalMessages}
-              </div>
-              <div style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
-                Всего сообщений
-              </div>
-            </div>
-            
-            <div style={{ 
-              background: '#f6ffed', 
-              padding: '25px', 
-              borderRadius: '12px', 
-              textAlign: 'center',
-              border: '2px solid #52c41a',
-              boxShadow: '0 4px 12px rgba(82, 196, 26, 0.1)'
-            }}>
-              <div style={{ 
-                fontSize: '32px', 
-                fontWeight: 'bold', 
-                color: '#52c41a',
-                marginBottom: '8px'
-              }}>
-                {metrics.totalDialogs}
-              </div>
-              <div style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
-                Всего диалогов
-              </div>
-            </div>
-            
-            <div style={{ 
-              background: '#fff7e6', 
-              padding: '25px', 
-              borderRadius: '12px', 
-              textAlign: 'center',
-              border: '2px solid #fa8c16',
-              boxShadow: '0 4px 12px rgba(250, 140, 22, 0.1)'
-            }}>
-              <div style={{ 
-                fontSize: '32px', 
-                fontWeight: 'bold', 
-                color: '#fa8c16',
-                marginBottom: '8px'
-              }}>
-                {metrics.avgDialogLength}
-              </div>
-              <div style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
-                Сообщений в диалоге
-              </div>
-            </div>
-
-            <div style={{ 
-              background: '#f9f0ff', 
-              padding: '25px', 
-              borderRadius: '12px', 
-              textAlign: 'center',
-              border: '2px solid #722ed1',
-              boxShadow: '0 4px 12px rgba(114, 46, 209, 0.1)'
-            }}>
-              <div style={{ 
-                fontSize: '32px', 
-                fontWeight: 'bold', 
-                color: '#722ed1',
-                marginBottom: '8px'
-              }}>
-                {metrics.retentionRate}
-              </div>
-              <div style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
-                Возвращаемость
-              </div>
-            </div>
-            
-            <div style={{ 
-              background: '#f6ffed', 
-              padding: '25px', 
-              borderRadius: '12px', 
-              textAlign: 'center',
-              border: '2px solid #52c41a',
-              boxShadow: '0 4px 12px rgba(82, 196, 26, 0.1)'
-            }}>
-              <div style={{ 
-                fontSize: '32px', 
-                fontWeight: 'bold', 
-                color: '#52c41a',
-                marginBottom: '8px'
-              }}>
-                {metrics.successRate}
-              </div>
-              <div style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
-                Оставили контакты
-              </div>
-            </div>
-            
-            <div style={{ 
-              background: '#fff2f0', 
-              padding: '25px', 
-              borderRadius: '12px', 
-              textAlign: 'center',
-              border: '2px solid #ff4d4f',
-              boxShadow: '0 4px 12px rgba(255, 77, 79, 0.1)'
-            }}>
-              <div style={{ 
-                fontSize: '32px', 
-                fontWeight: 'bold', 
-                color: '#ff4d4f',
-                marginBottom: '8px'
-              }}>
-                {metrics.failRate}
-              </div>
-              <div style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
-                Без контактов
-              </div>
-            </div>
-          </div>
-          
-          {loading && <div style={{ color: '#1890ff', marginTop: '20px', textAlign: 'center', fontSize: '16px' }}>Загрузка данных...</div>}
-          {error && <div style={{ color: 'red', marginTop: '20px', textAlign: 'center', fontSize: '16px' }}>{error}</div>}
-        </div>
-
-        {/* АДАПТИВНЫЙ ГРАФИК */}
-        <div style={{
-          background: '#fff',
-          padding: '30px',
-          marginBottom: '20px',
-          borderRadius: '8px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-        }}>
-          <h3 style={{ 
-            marginBottom: '20px', 
-            fontSize: '18px',
-            margin: '0 0 20px 0',
-            color: '#1f1f1f'
-          }}>
-            Динамика сообщений
-          </h3>
-          <div style={{ marginBottom: '20px' }}>
-            <RangePicker
-              onChange={dates => setDateRange(dates)}
-              format="YYYY-MM-DD"
-              allowClear
-              size="default"
-              style={{ fontSize: '14px' }}
-            />
-          </div>
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '50px' }}>
-              <Spin size="large" />
-            </div>
-          ) : (
-            <div style={{ 
-              width: '100%', 
-              height: '400px'
-            }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="date" 
-                    fontSize={12}
-                    interval="preserveStartEnd"
-                  />
-                  <YAxis fontSize={12} />
-                  <Tooltip />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="messages" 
-                    stroke="#1890ff" 
-                    strokeWidth={3}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-
-        {/* АДАПТИВНАЯ ТАБЛИЦА */}
-        <div style={{
-          background: '#fff',
-          padding: '30px',
-          borderRadius: '8px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          marginBottom: '20px'
-        }}>
-          <h3 style={{ 
-            marginBottom: '20px', 
-            fontSize: '18px',
-            margin: '0 0 20px 0',
-            color: '#1f1f1f'
-          }}>
-            Пользователи и диалоги
-          </h3>
-          <div style={{ overflowX: 'auto' }}>
-            <Table 
-              columns={columns} 
-              dataSource={users} 
-              pagination={{ pageSize: 10 }}
-              size="default"
-              scroll={{ x: 400 }}
-              style={{ fontSize: '14px' }}
-            />
-          </div>
-        </div>
+          Аналитика и метрики взаимодействий
+        </p>
       </div>
 
+      <div style={{ padding: '40px' }}>
+        {/* ВКЛАДКИ */}
+        <Tabs
+          defaultActiveKey="1"
+          size="large"
+          style={{
+            background: '#ffffff',
+            borderRadius: '12px',
+            padding: '40px',
+            border: '1px solid #e9ecef',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
+          }}
+          tabBarStyle={{
+            marginBottom: '40px',
+            borderBottom: '1px solid #e9ecef'
+          }}
+        >
+
+          {/* ВКЛАДКА 1: ОСНОВНЫЕ МЕТРИКИ */}
+          <TabPane tab="Основные метрики" key="1">
+            <Row gutter={[32, 32]}>
+              <Col xs={24} sm={12} md={8}>
+                <Card style={{
+                  background: '#ffffff',
+                  border: '1px solid #e9ecef',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                      fontSize: '56px',
+                      fontWeight: '200',
+                      marginBottom: '12px',
+                      color: '#2c3e50'
+                    }}>
+                      {metrics.totalMessages}
+                    </div>
+                    <div style={{
+                      fontSize: '14px',
+                      color: '#6c757d',
+                      fontWeight: '400',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}>
+                      Всего сообщений
+                    </div>
+                  </div>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} md={8}>
+                <Card style={{
+                  background: '#ffffff',
+                  border: '1px solid #e9ecef',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                      fontSize: '56px',
+                      fontWeight: '200',
+                      marginBottom: '12px',
+                      color: '#2c3e50'
+                    }}>
+                      {metrics.totalDialogs}
+                    </div>
+                    <div style={{
+                      fontSize: '14px',
+                      color: '#6c757d',
+                      fontWeight: '400',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}>
+                      Всего диалогов
+                    </div>
+                  </div>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} md={8}>
+                <Card style={{
+                  background: '#ffffff',
+                  border: '1px solid #e9ecef',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                      fontSize: '56px',
+                      fontWeight: '200',
+                      marginBottom: '12px',
+                      color: '#2c3e50'
+                    }}>
+                      {metrics.conversionRate}
+                    </div>
+                    <div style={{
+                      fontSize: '14px',
+                      color: '#6c757d',
+                      fontWeight: '400',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}>
+                      Конверсия в успешные диалоги
+                    </div>
+                  </div>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} md={8}>
+                <Card style={{
+                  background: '#ffffff',
+                  border: '1px solid #e9ecef',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                      fontSize: '56px',
+                      fontWeight: '200',
+                      marginBottom: '12px',
+                      color: '#2c3e50'
+                    }}>
+                      {metrics.retentionRate}
+                    </div>
+                    <div style={{
+                      fontSize: '14px',
+                      color: '#6c757d',
+                      fontWeight: '400',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}>
+                      Возвращаемость
+                    </div>
+                  </div>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} md={8}>
+                <Card style={{
+                  background: '#ffffff',
+                  border: '1px solid #e9ecef',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                      fontSize: '56px',
+                      fontWeight: '200',
+                      marginBottom: '12px',
+                      color: '#2c3e50'
+                    }}>
+                      {metrics.successDialogs}
+                    </div>
+                    <div style={{
+                      fontSize: '14px',
+                      color: '#6c757d',
+                      fontWeight: '400',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}>
+                      Оставили контакты
+                    </div>
+                  </div>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} md={8}>
+                <Card style={{
+                  background: '#ffffff',
+                  border: '1px solid #e9ecef',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                      fontSize: '56px',
+                      fontWeight: '200',
+                      marginBottom: '12px',
+                      color: '#2c3e50'
+                    }}>
+                      {metrics.failRate}
+                    </div>
+                    <div style={{
+                      fontSize: '14px',
+                      color: '#6c757d',
+                      fontWeight: '400',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}>
+                      Без контактов
+                    </div>
+                  </div>
+                </Card>
+              </Col>
+            </Row>
+
+            {loading && (
+              <div style={{
+                textAlign: 'center',
+                marginTop: '60px',
+                fontSize: '16px',
+                color: '#6c757d'
+              }}>
+                Загрузка данных...
+              </div>
+            )}
+            {error && (
+              <div style={{
+                textAlign: 'center',
+                marginTop: '60px',
+                fontSize: '16px',
+                color: '#dc3545'
+              }}>
+                {error}
+              </div>
+            )}
+          </TabPane>
+
+          {/* ВКЛАДКА 2: ГРАФИК */}
+          <TabPane tab="Динамика сообщений" key="2">
+            <div style={{ marginBottom: '40px' }}>
+              <RangePicker
+                onChange={dates => setDateRange(dates)}
+                format="YYYY-MM-DD"
+                allowClear
+                size="large"
+                style={{
+                  width: '100%',
+                  maxWidth: '400px',
+                  borderRadius: '6px',
+                  border: '1px solid #e9ecef'
+                }}
+              />
+            </div>
+
+            {loading ? (
+              <div style={{
+                textAlign: 'center',
+                padding: '100px',
+                fontSize: '16px',
+                color: '#6c757d'
+              }}>
+                <Spin size="large" />
+                <div style={{ marginTop: '20px' }}>Загрузка графика...</div>
+              </div>
+            ) : (
+              <div style={{
+                width: '100%',
+                height: '500px',
+                background: '#ffffff',
+                borderRadius: '8px',
+                padding: '30px',
+                border: '1px solid #e9ecef',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+              }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
+                    <XAxis
+                      dataKey="date"
+                      fontSize={12}
+                      stroke="#6c757d"
+                      tick={{ fill: '#6c757d' }}
+                    />
+                    <YAxis
+                      fontSize={12}
+                      stroke="#6c757d"
+                      tick={{ fill: '#6c757d' }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: '#ffffff',
+                        border: '1px solid #e9ecef',
+                        borderRadius: '6px',
+                        color: '#2c3e50',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                      }}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="messages"
+                      stroke="#1890ff"
+                      strokeWidth={2}
+                      dot={{
+                        fill: '#1890ff',
+                        strokeWidth: 2,
+                        r: 4
+                      }}
+                      activeDot={{
+                        r: 6,
+                        fill: '#1890ff',
+                        strokeWidth: 2
+                      }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </TabPane>
+
+          {/* ВКЛАДКА 3: ПОЛЬЗОВАТЕЛИ */}
+          <TabPane tab="Пользователи и диалоги" key="3">
+            <div style={{
+              background: '#ffffff',
+              borderRadius: '8px',
+              padding: '30px',
+              border: '1px solid #e9ecef',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+            }}>
+              <Table
+                columns={columns}
+                dataSource={users}
+                pagination={{
+                  pageSize: 15,
+                  showSizeChanger: true,
+                  showQuickJumper: true,
+                  showTotal: (total, range) => `${range[0]}-${range[1]} из ${total} пользователей`
+                }}
+                size="middle"
+                scroll={{ x: 600 }}
+                style={{
+                  background: 'transparent'
+                }}
+              />
+            </div>
+          </TabPane>
+        </Tabs>
+      </div>
+
+      {/* МОДАЛЬНОЕ ОКНО */}
       <Modal
         open={!!selectedUser}
         onCancel={() => setSelectedUser(null)}
-        title="История чата"
+        title={
+          <div style={{
+            fontSize: '18px',
+            fontWeight: '400',
+            color: '#2c3e50'
+          }}>
+            История чата
+          </div>
+        }
         footer={null}
         width="90vw"
-        style={{ maxWidth: '800px' }}
+        style={{ 
+          maxWidth: '800px'
+        }}
+        bodyStyle={{
+          maxHeight: '60vh',
+          overflowY: 'auto',
+          padding: '30px',
+          background: '#ffffff'
+        }}
       >
         <List
           dataSource={chatLogs[selectedUser] || []}
           renderItem={item => (
-            <List.Item style={{ fontSize: '14px' }}>
-              <div>
-                <b>{item.from === 'user' ? 'Пользователь' : 'Ассистент'}:</b> {item.text}
-                <div style={{ color: '#aaa', fontSize: '12px', marginTop: '5px' }}>
-                  {dayjs(item.time).format('YYYY-MM-DD HH:mm')}
+            <List.Item style={{
+              padding: '20px 0',
+              borderBottom: '1px solid #e9ecef'
+            }}>
+              <div style={{ width: '100%' }}>
+                <div style={{
+                  fontWeight: '500',
+                  color: item.from === 'user' ? '#2c3e50' : '#6c757d',
+                  marginBottom: '12px',
+                  fontSize: '14px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px'
+                }}>
+                  {item.from === 'user' ? 'Пользователь' : 'Ассистент'}
+                </div>
+                <div style={{
+                  marginBottom: '12px',
+                  fontSize: '16px',
+                  lineHeight: '1.5',
+                  color: '#2c3e50'
+                }}>
+                  {item.text}
+                </div>
+                <div style={{
+                  color: '#adb5bd',
+                  fontSize: '12px',
+                  fontWeight: '400'
+                }}>
+                  {dayjs(item.time).format('DD.MM.YYYY HH:mm')}
                 </div>
               </div>
             </List.Item>
