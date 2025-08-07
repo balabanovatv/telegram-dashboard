@@ -108,6 +108,9 @@ function App() {
         });
         let chartArr = Object.entries(chartMap).map(([date, messages]) => ({ date, messages }));
 
+        // Сортируем данные по дате
+        chartArr.sort((a, b) => dayjs(a.date).isBefore(dayjs(b.date)) ? -1 : 1);
+
         if (dateRange[0] && dateRange[1]) {
           chartArr = chartArr.filter(item => {
             const d = dayjs(item.date);
