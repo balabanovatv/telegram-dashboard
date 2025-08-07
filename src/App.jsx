@@ -193,6 +193,7 @@ function App() {
       padding: '0',
       background: '#f8f9fa',
       minHeight: '100vh',
+      width: '100%',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
       {/* ЗАГОЛОВОК */}
